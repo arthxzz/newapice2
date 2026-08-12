@@ -10,6 +10,15 @@ const db           = require("./database/db");
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
 
+// Confia em 1 hop de proxy reverso (Render, Clever Cloud etc. sempre
+// ficam atrás de um). Sem isso, o Express ignora o X-Forwarded-For e:
+//   1) express-rate-limit não consegue identificar IPs de verdade
+//      (lança ERR_ERL_UNEXPECTED_X_FORWARDED_FOR em toda req de auth)
+//   2) req.secure/req.protocol ficam errados atrás de TLS terminado no proxy
+// "1" (não `true`) = só confia no primeiro salto, então um cliente não
+// consegue forjar X-Forwarded-For pra se passar por outro IP.
+app.set("trust proxy", 1);
+
 // ── Segurança: cabeçalhos HTTP ────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
@@ -71,7 +80,7 @@ app.use((req, res, next) => {
 });
 
 // ── Middlewares de auth ───────────────────────────────────
-const { requireAuth, requireCompany, redirectIfAuth } = require("./middlewares/auth");
+const { requireAuth, requireCompany, requireAdmin, redirectIfAuth } = require("./middlewares/auth");
 
 // ── Páginas públicas ──────────────────────────────────────
 app.get("/", async (req, res) => {
@@ -92,6 +101,9 @@ app.get("/", async (req, res) => {
 
 app.get("/login",    redirectIfAuth, (req, res) => res.render("login"));
 app.get("/cadastro", redirectIfAuth, (req, res) => res.render("cadastro"));
+
+app.get("/esqueci-senha",   redirectIfAuth, (req, res) => res.render("esqueci-senha"));
+app.get("/redefinir-senha", redirectIfAuth, (req, res) => res.render("redefinir-senha"));
 
 // Vagas — pública, mas mostra sidebar se autenticado
 app.get("/vagas", (req, res) => res.render("vagas", { currentPage: "vagas" }));
@@ -123,6 +135,11 @@ app.get("/roadmap", requireAuth, (req, res) => {
   res.render("roadmap", { currentPage: "roadmap" });
 });
 
+app.get("/mensagens", requireAuth, (req, res) => {
+  if (req.session.user.type !== "dev") return res.redirect("/empresa/mensagens");
+  res.render("mensagens", { currentPage: "mensagens" });
+});
+
 // ── Área da empresa ───────────────────────────────────────
 app.get("/empresa/dashboard", requireCompany, (req, res) => {
   res.render("empresa-dashboard", { currentPage: "empresa-dashboard" });
@@ -138,6 +155,10 @@ app.get("/empresa/desenvolvedores", requireCompany, (req, res) => {
 
 app.get("/empresa/matchs", requireCompany, (req, res) => {
   res.render("empresa-matchs", { currentPage: "empresa-matchs" });
+});
+
+app.get("/empresa/mensagens", requireCompany, (req, res) => {
+  res.render("empresa-mensagens", { currentPage: "empresa-mensagens" });
 });
 
 app.get("/empresa/dev/:id", requireCompany, (req, res) => {
@@ -187,6 +208,15 @@ app.get("/vagas/:id", (req, res) => {
   res.render("vaga-publica", { jobId: Number(req.params.id) });
 });
 
+// ── Área do administrador ─────────────────────────────────
+app.get("/admin/dashboard",      requireAdmin, (req, res) => res.render("admin-dashboard",      { currentPage: "admin-dashboard" }));
+app.get("/admin/usuarios",       requireAdmin, (req, res) => res.render("admin-usuarios",        { currentPage: "admin-usuarios" }));
+app.get("/admin/empresas",       requireAdmin, (req, res) => res.render("admin-empresas",        { currentPage: "admin-empresas" }));
+app.get("/admin/vagas",          requireAdmin, (req, res) => res.render("admin-vagas",           { currentPage: "admin-vagas" }));
+app.get("/admin/matchs",         requireAdmin, (req, res) => res.render("admin-matchs",          { currentPage: "admin-matchs" }));
+app.get("/admin/relatorios",     requireAdmin, (req, res) => res.render("admin-relatorios",      { currentPage: "admin-relatorios" }));
+app.get("/admin/configuracoes",  requireAdmin, (req, res) => res.render("admin-configuracoes",   { currentPage: "admin-configuracoes" }));
+
 // ── API ───────────────────────────────────────────────────
 app.get("/api/user", (req, res) => {
   if (!req.session?.user) return res.status(401).json({ error: "Não autenticado" });
@@ -211,6 +241,9 @@ const profileRoutes     = require("./routes/profile");
 const roadmapRoutes     = require("./routes/roadmap");
 const empresaRoutes     = require("./routes/empresa");
 const repositoriosRoutes = require("./routes/repositorios");
+const adminRoutes       = require("./routes/admin");
+const messagesRoutes    = require("./routes/messages");
+const companyPublicRoutes = require("./routes/company-public");
 
 app.use("/auth",        authRoutes);
 app.use("/api/auth",    authLimiter, userRoutes);
@@ -218,6 +251,9 @@ app.use("/api/user",    profileRoutes);
 app.use("/api/user",    repositoriosRoutes);
 app.use("/api",         roadmapRoutes);
 app.use("/api/empresa", empresaRoutes);
+app.use("/api/admin",   adminRoutes);
+app.use("/api/messages", messagesRoutes);
+app.use("/api/empresas", companyPublicRoutes);
 
 // ── 404 ───────────────────────────────────────────────────
 app.use((req, res) => {
@@ -233,5 +269,13 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────
+// Espera as migrações automáticas (db.js) terminarem antes de aceitar
+// requisições — sem isso, toda vez que o servidor reinicia (todo deploy)
+// existe uma janela onde uma rota pode bater numa coluna/tabela nova
+// que a migração ainda não criou, e cair num 500.
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+db.ready
+  .catch(() => {}) // testarConexao() já loga o próprio erro; aqui só evita unhandled rejection
+  .finally(() => {
+    app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+  });
