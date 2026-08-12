@@ -10,6 +10,15 @@ const db           = require("./database/db");
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
 
+// Confia em 1 hop de proxy reverso (Render, Clever Cloud etc. sempre
+// ficam atrás de um). Sem isso, o Express ignora o X-Forwarded-For e:
+//   1) express-rate-limit não consegue identificar IPs de verdade
+//      (lança ERR_ERL_UNEXPECTED_X_FORWARDED_FOR em toda req de auth)
+//   2) req.secure/req.protocol ficam errados atrás de TLS terminado no proxy
+// "1" (não `true`) = só confia no primeiro salto, então um cliente não
+// consegue forjar X-Forwarded-For pra se passar por outro IP.
+app.set("trust proxy", 1);
+
 // ── Segurança: cabeçalhos HTTP ────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {

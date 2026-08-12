@@ -330,6 +330,16 @@ Documentação das melhorias realizadas no projeto após auditoria técnica comp
 ### Testado de ponta a ponta contra o banco real
 Cadastro → dev busca vaga → inicia conversa → manda mensagem → empresa vê badge de não lida → empresa abre o painel do dev → dev abre o painel da empresa (com descrição/cidade/vagas abertas de verdade) → confirmado que o boot não aceita mais requisição antes da hora. Contas de teste removidas depois.
 
+## Fase 7 — Corrige crash de `express-rate-limit` em produção (Render)
+
+> Foco: erro real reportado em produção logo após o deploy no Render.
+
+**`ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` derrubando toda requisição de auth**
+
+O Render (como qualquer PaaS atrás de proxy reverso) injeta o header `X-Forwarded-For` em toda requisição, mas o Express só confia nesse header se for explicitamente configurado com `trust proxy`. Sem isso, o `express-rate-limit` (usado nas rotas `/api/auth/*`) lança uma `ValidationError` em toda tentativa de login/cadastro/recuperação de senha — na prática, um 500 nessas rotas em produção.
+
+Corrigido com `app.set("trust proxy", 1)` em `server.js` — confia só no primeiro hop de proxy (o do Render), então um cliente não consegue forjar `X-Forwarded-For` pra se passar por outro IP e furar o rate limit. Testado localmente simulando o header (`curl -H "X-Forwarded-For: ..."`) — antes da correção o request quebrava, depois responde normalmente.
+
 ## Arquivos modificados por fase
 
 | Arquivo | Fase 1 | Fase 2 | Fase 3 | Fase 4 |
@@ -404,11 +414,11 @@ Sem isso, `POST /api/auth/forgot-password` continua respondendo com sucesso gen�
 | `SMTP_USER` / `SMTP_PASS` | Credenciais do provedor |
 | `SMTP_FROM` | Remetente, ex: `Ápice <no-reply@apice.app>` |
 
-Configurar no `.env` local e nas variáveis de ambiente de produção (Clever Cloud).
+Configurar no `.env` local e nas variáveis de ambiente do serviço em produção.
 
-### 4. Confirmar `NODE_ENV=production` no ambiente de produção (Clever Cloud)
+### 4. Confirmar `NODE_ENV=production` no ambiente de produção
 
-`server.js` só ativa `cookie.secure: true` (cookie de sessão só por HTTPS) quando `NODE_ENV === "production"`. Isso não dá para confirmar a partir do repositório — precisa ser checado no painel do Clever Cloud.
+`server.js` só ativa `cookie.secure: true` (cookie de sessão só por HTTPS) quando `NODE_ENV === "production"`. Isso não dá para confirmar a partir do repositório — precisa ser checado no painel do serviço que hospeda a aplicação (a app roda no Render, `/opt/render/project/...` — confirmado pelo stack trace do item 9 abaixo; o banco MySQL continua no Clever Cloud, é só a aplicação Node que está no Render).
 
 ### 5. (Opcional) Purgar segredos antigos do histórico do git
 
@@ -427,6 +437,10 @@ Rodei `node database/seed-admin.js` para poder testar a Área Administrador de p
 
 O sistema de planos já limita vagas por plano e libera/restringe recursos do dev (roadmap, destaque de perfil), mas o "pagar de verdade" ainda não existe — hoje o plano de qualquer usuário só muda manualmente pelo admin. Quando decidirem entre Mercado Pago, Stripe ou outro, dá pra plugar o checkout/webhook em cima do que já existe (`services/subscriptionService.js`) sem mexer no resto.
 
-### 8. Revisar o protótipo de Mensagens quando estiver pronto (Fase 5)
+### ~~8. Revisar o protótipo de Mensagens quando estiver pronto~~ — ✅ feito (Fase 6)
 
-O banco e a API (`/api/messages/*`) já funcionam ponta a ponta. Falta só a tela — me manda o protótipo que eu volto com o design certo em vez de inventar uma UI própria.
+A UI de mensagens foi construída em cima do protótipo enviado — ver seção "Fase 6" acima.
+
+### 9. Verificar se `trust proxy` está correto se a hospedagem mudar (Fase 7)
+
+A aplicação roda no **Render** (confirmado pelo stack trace de um erro em produção: `/opt/render/project/src/...`), atrás de um único proxy reverso. `server.js` agora declara `app.set("trust proxy", 1)` pra isso funcionar. Se um dia a hospedagem mudar pra algo com mais de um hop de proxy na frente (ex: atrás de um CDN + load balancer), esse `1` pode precisar virar `2` ou uma lista de IPs confiáveis — ver a [documentação do Express sobre `trust proxy`](https://expressjs.com/en/guide/behind-proxies.html).
