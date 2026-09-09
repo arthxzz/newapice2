@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --passWithNoTests",
     "start": "node server.js"
   },
   "keywords": [],
@@ -22,6 +22,18 @@
     "express-validator": "^7.3.2",
     "helmet": "^8.2.0",
     "multer": "^2.1.1",
-    "mysql2": "^3.20.0"
+    "mysql2": "^3.20.0",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
+    "jest": "^30.5.1",
+    "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "express-mysql-session": {
+      "mysql2": "^3.22.0"
+    }
   }
 }

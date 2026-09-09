@@ -6,6 +6,7 @@ const MySQLStore   = require("express-mysql-session")(session);
 const helmet       = require("helmet");
 const rateLimit    = require("express-rate-limit");
 const db           = require("./database/db");
+const { getLatestInsights } = require("./services/marketInsights");
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -66,14 +67,11 @@ app.use(session({
   },
 }));
 
-// Expõe `user` para todos os templates
-app.use((req, res, next) => {
-  res.locals.user = req.session?.user ?? null;
-  next();
-});
-
 // ── Middlewares de auth ───────────────────────────────────
-const { requireAuth, requireCompany, redirectIfAuth } = require("./middlewares/auth");
+const { exposeUser, requireAuth, requireCompany, requireAdmin, redirectIfAuth } = require("./middlewares/auth");
+
+// Expõe `user` para todos os templates, sem o accessToken do GitHub (QA-004)
+app.use(exposeUser);
 
 // ── Páginas públicas ──────────────────────────────────────
 app.get("/", async (req, res) => {
@@ -95,8 +93,32 @@ app.get("/", async (req, res) => {
 app.get("/login",    redirectIfAuth, (req, res) => res.render("login"));
 app.get("/cadastro", redirectIfAuth, (req, res) => res.render("cadastro"));
 
+app.get("/esqueci-senha",   redirectIfAuth, (req, res) => res.render("esqueci-senha"));
+app.get("/redefinir-senha", redirectIfAuth, (req, res) => res.render("redefinir-senha"));
+
 // Vagas — pública, mas mostra sidebar se autenticado
-app.get("/vagas", (req, res) => res.render("vagas", { currentPage: "vagas" }));
+// SEO (QA-020): renderiza a lista inicial de vagas no servidor — sem isso,
+// um crawler sem JS via um "Carregando..." em vez das vagas de verdade.
+app.get("/vagas", async (req, res) => {
+  let jobs = [];
+  try {
+    const [rows] = await db.query(
+      "SELECT id, title, company, description, level FROM jobs WHERE active = 1 ORDER BY id LIMIT 500"
+    );
+    jobs = rows;
+  } catch (_) {}
+  res.render("vagas", { currentPage: "vagas", jobs });
+});
+
+// SEO (QA-020): renderiza o resumo já cacheado (se existir) no servidor,
+// em vez de deixar a página inteira depender do fetch client-side.
+app.get("/insights-mercado", async (req, res) => {
+  let insights = null;
+  try {
+    insights = await getLatestInsights();
+  } catch (_) {}
+  res.render("insights-mercado", { currentPage: "insights-mercado", insights });
+});
 
 // ── Área do desenvolvedor ─────────────────────────────────
 app.get("/dashboard", requireAuth, async (req, res) => {
@@ -125,6 +147,21 @@ app.get("/roadmap", requireAuth, (req, res) => {
   res.render("roadmap", { currentPage: "roadmap" });
 });
 
+app.get("/mensagens", requireAuth, (req, res) => {
+  if (req.session.user.type !== "dev") return res.redirect("/empresa/mensagens");
+  res.render("mensagens", { currentPage: "mensagens" });
+});
+
+app.get("/mentor", requireAuth, (req, res) => {
+  if (req.session.user.type !== "dev") return res.redirect("/empresa/dashboard");
+  res.render("mentor", { currentPage: "mentor" });
+});
+
+app.get("/entrevista", requireAuth, (req, res) => {
+  if (req.session.user.type !== "dev") return res.redirect("/empresa/dashboard");
+  res.render("entrevista", { currentPage: "entrevista" });
+});
+
 // ── Área da empresa ───────────────────────────────────────
 app.get("/empresa/dashboard", requireCompany, (req, res) => {
   res.render("empresa-dashboard", { currentPage: "empresa-dashboard" });
@@ -140,6 +177,10 @@ app.get("/empresa/desenvolvedores", requireCompany, (req, res) => {
 
 app.get("/empresa/matchs", requireCompany, (req, res) => {
   res.render("empresa-matchs", { currentPage: "empresa-matchs" });
+});
+
+app.get("/empresa/mensagens", requireCompany, (req, res) => {
+  res.render("empresa-mensagens", { currentPage: "empresa-mensagens" });
 });
 
 app.get("/empresa/dev/:id", requireCompany, (req, res) => {
@@ -185,9 +226,30 @@ app.get("/empresa/vagas/:id/editar", requireCompany, async (req, res) => {
 });
 
 // Vaga pública individual
-app.get("/vagas/:id", (req, res) => {
-  res.render("vaga-publica", { jobId: Number(req.params.id) });
+// SEO (QA-020): busca título/descrição no servidor pra título, meta
+// description, Open Graph e <h1> existirem no HTML inicial — o resto
+// (match, skills, candidatura) continua vindo do fetch client-side.
+app.get("/vagas/:id", async (req, res) => {
+  const jobId = Number(req.params.id);
+  let job = null;
+  try {
+    const [rows] = await db.query(
+      "SELECT id, title, description, company FROM jobs WHERE id = ?",
+      [jobId]
+    );
+    job = rows[0] ?? null;
+  } catch (_) {}
+  res.render("vaga-publica", { jobId, job });
 });
+
+// ── Área do administrador ─────────────────────────────────
+app.get("/admin/dashboard",      requireAdmin, (req, res) => res.render("admin-dashboard",      { currentPage: "admin-dashboard" }));
+app.get("/admin/usuarios",       requireAdmin, (req, res) => res.render("admin-usuarios",        { currentPage: "admin-usuarios" }));
+app.get("/admin/empresas",       requireAdmin, (req, res) => res.render("admin-empresas",        { currentPage: "admin-empresas" }));
+app.get("/admin/vagas",          requireAdmin, (req, res) => res.render("admin-vagas",           { currentPage: "admin-vagas" }));
+app.get("/admin/matchs",         requireAdmin, (req, res) => res.render("admin-matchs",          { currentPage: "admin-matchs" }));
+app.get("/admin/relatorios",     requireAdmin, (req, res) => res.render("admin-relatorios",      { currentPage: "admin-relatorios" }));
+app.get("/admin/configuracoes",  requireAdmin, (req, res) => res.render("admin-configuracoes",   { currentPage: "admin-configuracoes" }));
 
 // ── API ───────────────────────────────────────────────────
 app.get("/api/user", (req, res) => {
@@ -213,6 +275,10 @@ const profileRoutes     = require("./routes/profile");
 const roadmapRoutes     = require("./routes/roadmap");
 const empresaRoutes     = require("./routes/empresa");
 const repositoriosRoutes = require("./routes/repositorios");
+const adminRoutes       = require("./routes/admin");
+const messagesRoutes    = require("./routes/messages");
+const companyPublicRoutes = require("./routes/company-public");
+const aiRoutes           = require("./routes/ai");
 
 app.use("/auth",        authRoutes);
 app.use("/api/auth",    authLimiter, userRoutes);
@@ -220,6 +286,10 @@ app.use("/api/user",    profileRoutes);
 app.use("/api/user",    repositoriosRoutes);
 app.use("/api",         roadmapRoutes);
 app.use("/api/empresa", empresaRoutes);
+app.use("/api/admin",   adminRoutes);
+app.use("/api/messages", messagesRoutes);
+app.use("/api/empresas", companyPublicRoutes);
+app.use("/api/ai",      aiRoutes);
 
 // ── 404 ───────────────────────────────────────────────────
 app.use((req, res) => {
@@ -235,5 +305,13 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────
+// Espera as migrações automáticas (db.js) terminarem antes de aceitar
+// requisições — sem isso, toda vez que o servidor reinicia (todo deploy)
+// existe uma janela onde uma rota pode bater numa coluna/tabela nova
+// que a migração ainda não criou, e cair num 500.
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+db.ready
+  .catch(() => {}) // testarConexao() já loga o próprio erro; aqui só evita unhandled rejection
+  .finally(() => {
+    app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+  });
