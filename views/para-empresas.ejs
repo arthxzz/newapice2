@@ -75,7 +75,9 @@
       </header>
       <p class="pd-plan__desc">Acesso a todas as ferramentas e IA.</p>
       <p class="pd-plan__price" aria-live="polite">
-        <strong>R$<span id="pro-price" data-mensal="<%= planos.premium.mensal %>" data-anual="<%= planos.premium.anual %>"><%= planos.premium.mensal %></span></strong><span>/mês</span>
+        <%# Valores de exibição do card (referência visual). O valor cobrado vem de config/plans.js e o Mercado Pago só tem cobrança mensal. %>
+        <% const precoMensal = (planos.premium && planos.premium.mensal) || "99,99"; const precoAnual = (planos.premium && planos.premium.anual) || "79,90"; %>
+        <strong>R$<span id="pro-price" data-mensal="<%= precoMensal %>" data-anual="<%= precoAnual %>"><%= precoMensal %></span></strong><span>/mês</span>
       </p>
       <ul class="pd-plan__list">
         <li><span class="ic" aria-hidden="true">→</span> Quantidade de vagas ilimitadas</li>
