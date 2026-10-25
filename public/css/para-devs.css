@@ -127,8 +127,9 @@ body { background: #000; font-family: 'DM Mono', ui-monospace, monospace; }
 .pd-empresa .pd-plan__list li.is-muted .ic,
 .pd-empresa .pd-plan__list li.is-off .ic { color: var(--muted); }
 .pd-empresa .pd-plan__list li.is-off { color: var(--muted); }
-.pd-empresa .pd-toggle { border-color: var(--teal-border); }
-.pd-empresa .pd-toggle__btn.is-active { background: var(--teal); color: #06210f; }
+.pd-empresa .pd-toggle { background: #1a1a1a; border-color: #2a2a2a; padding: 3px; }
+.pd-empresa .pd-toggle__btn { color: #fff; padding: 4px 14px; border: 2px solid transparent; }
+.pd-empresa .pd-toggle__btn.is-active { background: #0a0a0a; color: #fff; border-color: var(--teal); }
 .pd-empresa .pd-btn--primary { background: var(--teal); border-color: var(--teal); color: #06210f; }
 .pd-empresa .pd-btn--primary:hover { background: var(--teal-hv); }
 .pd-empresa .pd-faq__icon { border-color: var(--teal-border); background: var(--teal-dim); color: var(--teal); }

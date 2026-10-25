@@ -170,7 +170,10 @@ app.get("/para-empresas", (req, res) => {
     planos: {
       free:    { vagas: getPlan("empresa_free").max_active_jobs },
       basico:  { preco: reais(basico.price_cents), vagas: basico.max_active_jobs },
-      premium: { preco: reais(premium.price_cents) },
+      // Card do Premium: valores de exibição definidos pela referência visual
+      // (mensal e anual). ATENÇÃO: o valor cobrado vem de config/plans.js
+      // (price_cents) e o Mercado Pago só tem cobrança mensal.
+      premium: { preco: reais(premium.price_cents), mensal: "99,99", anual: "79,90" },
     },
   });
 });
