@@ -48,15 +48,15 @@ body { background: #000; font-family: 'DM Mono', ui-monospace, monospace; }
 .pd-plan__list li.is-off span { color: var(--muted); }
 
 .pd-toggle {
-  display: inline-flex; border: 1px solid var(--accent-border); border-radius: 99px; padding: 2px;
-  background: #0a0a0a;
+  display: inline-flex; border: 1px solid #2a2a2a; border-radius: 99px; padding: 3px;
+  background: #1a1a1a;
 }
 .pd-toggle__btn {
   font-family: 'Montserrat', system-ui, sans-serif; font-size: .62rem; font-weight: 600;
-  color: var(--muted); background: transparent; border: 0; border-radius: 99px;
-  padding: 3px 10px; cursor: pointer;
+  color: #fff; background: transparent; border: 2px solid transparent; border-radius: 99px;
+  padding: 4px 14px; cursor: pointer;
 }
-.pd-toggle__btn.is-active { background: var(--accent); color: #fff; }
+.pd-toggle__btn.is-active { background: #0a0a0a; color: #fff; border-color: var(--accent-hv); }
 .pd-toggle__btn:focus-visible { outline: 2px solid var(--accent-hv); outline-offset: 2px; }
 
 .pd-btn {
@@ -127,9 +127,7 @@ body { background: #000; font-family: 'DM Mono', ui-monospace, monospace; }
 .pd-empresa .pd-plan__list li.is-muted .ic,
 .pd-empresa .pd-plan__list li.is-off .ic { color: var(--muted); }
 .pd-empresa .pd-plan__list li.is-off { color: var(--muted); }
-.pd-empresa .pd-toggle { background: #1a1a1a; border-color: #2a2a2a; padding: 3px; }
-.pd-empresa .pd-toggle__btn { color: #fff; padding: 4px 14px; border: 2px solid transparent; }
-.pd-empresa .pd-toggle__btn.is-active { background: #0a0a0a; color: #fff; border-color: var(--teal); }
+.pd-empresa .pd-toggle__btn.is-active { border-color: var(--teal); }
 .pd-toggle__btn { transition: background-color .25s ease, border-color .25s ease, color .25s ease; }
 
 /* Preço do card com toggle: inline-block para poder animar a troca;

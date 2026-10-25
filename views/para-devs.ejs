@@ -68,10 +68,16 @@
     <article class="pd-plan pd-plan--pro" aria-labelledby="plan-pro-name">
       <header class="pd-plan__head">
         <h2 id="plan-pro-name">Plano PRO</h2>
-        <span class="pd-badge">Cobrança mensal</span>
+        <div class="pd-toggle" role="group" aria-label="Periodicidade da cobrança">
+          <button type="button" class="pd-toggle__btn is-active" data-period="mensal" aria-pressed="true">Mensal</button>
+          <button type="button" class="pd-toggle__btn" data-period="anual" aria-pressed="false">Anual</button>
+        </div>
       </header>
       <p class="pd-plan__desc">Acesso a todas as ferramentas e IA.</p>
-      <p class="pd-plan__price"><strong>R$<%= prices.pro %></strong><span>/mês</span></p>
+      <%# Valores de exibição do card. O valor cobrado vem de config/plans.js e o Mercado Pago só tem cobrança mensal. %>
+      <p class="pd-plan__price" aria-live="polite">
+        <strong>R$<span id="pro-price" data-mensal="24,90" data-anual="19,90">24,90</span></strong><span>/mês</span>
+      </p>
       <ul class="pd-plan__list">
         <li><span aria-hidden="true">→</span> Até 5 roadmaps ativos simultaneamente</li>
         <li><span aria-hidden="true">→</span> Regeneração de roadmap semanal</li>
@@ -159,6 +165,7 @@
 
 </main>
 
+<script src="/js/plano-toggle.js" defer></script>
 <script src="/js/reveal.js" defer></script>
 </body>
 </html>
