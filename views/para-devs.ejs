@@ -76,7 +76,7 @@
       <p class="pd-plan__desc">Acesso a todas as ferramentas e IA.</p>
       <%# Valores de exibição do card. O valor cobrado vem de config/plans.js e o Mercado Pago só tem cobrança mensal. %>
       <p class="pd-plan__price" aria-live="polite">
-        <strong>R$<span id="pro-price" data-mensal="24,90" data-anual="19,90">24,90</span></strong><span>/mês</span>
+        <strong>R$<span id="pro-price" data-mensal="<%= prices.pro.mensal %>" data-anual="<%= prices.pro.anual %>"><%= prices.pro.mensal %></span></strong><span>/mês</span>
       </p>
       <ul class="pd-plan__list">
         <li><span aria-hidden="true">→</span> Até 5 roadmaps ativos simultaneamente</li>
