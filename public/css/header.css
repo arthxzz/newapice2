@@ -401,6 +401,13 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
   z-index: 10;
 
+  /* QA-043: a lista tem 11 itens; em telas baixas ela rola por dentro em vez
+     de passar do rodapé (fallback 100vh para navegadores sem dvh). */
+  max-height: calc(100vh - var(--header-h) - 24px);
+  max-height: calc(100dvh - var(--header-h) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px) scale(0.97);
@@ -607,6 +614,13 @@
 
   /* Ativa bottom nav */
   .bottom-nav { display: flex; }
+
+  /* QA-043: o menu do usuário não pode ficar atrás da pill (240 > header 200);
+     reserva o mesmo espaço do padding-bottom do body (≈ 92px + área segura). */
+  .user-menu-list {
+    max-height: calc(100vh - var(--header-h) - 24px - 92px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - var(--header-h) - 24px - 92px - env(safe-area-inset-bottom, 0px));
+  }
 
   /* Empurra conteúdo acima da pill */
   body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
